@@ -9,12 +9,24 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "error.h"
 #include "request.h"
 
+int sock_fd;
+
+void term(int signo) {
+    printf("received sigterm[%d], killing\n", signo);
+    close(sock_fd);
+    exit(0);
+}
+
 //int main(int argc, char **argv) {
 int main(void) {
+    signal(SIGTERM, term);
+    signal(SIGINT, term);
+
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
     socklen_t client_addr_size = sizeof(client_addr);
@@ -23,7 +35,7 @@ int main(void) {
     pthread_attr_init(&thread_attr);
     pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_DETACHED);
 
-    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sock_fd < 0)
         thunder_fatal("opening socket failed");

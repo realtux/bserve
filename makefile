@@ -3,7 +3,7 @@ CFLAGS=-std=c99 \
 	-O3 -Wall -Wextra -Wundef -Wfloat-equal -Wpointer-arith -Wcast-align \
 	-Wstrict-prototypes -Wno-missing-field-initializers -Warray-bounds \
 	-pedantic -fstrict-aliasing -g
-LINKS=-lpthread
+LINKS=-lpthread -lssl -lcrypto
 INCLUDES=-I. -I./src
 
 LIB_OBJS =

@@ -8,9 +8,19 @@
 
 thun_response *thun_init_response(void) {
     thun_response *response = malloc(sizeof(thun_response));
+
+    if (response == NULL) {
+        thunder_fatal("memory allocation error");
+    }
+
     response->body = NULL;
 
     return response;
+}
+
+void thun_dealloc_response(thun_response *response) {
+    if (response->body != NULL) free(response->body);
+    free(response);
 }
 
 char *init_response_string(int code) {
