@@ -8,8 +8,7 @@
 
 thun_response *thun_init_response(void) {
     thun_response *response = malloc(sizeof(thun_response));
-    response->body = malloc(1 * sizeof(char));
-    *response->body = '\0';
+    response->body = NULL;
 
     return response;
 }
@@ -29,43 +28,54 @@ char *init_response_string(int code) {
     return response_string;
 }
 
-void append_txt_header(char *res_string, const char *header, const char *value) {
-    int new_len = strlen(res_string) + strlen(header) + strlen(value) + 2 + 1;
+void append_txt_header(char **res_string, const char *header, const char *value) {
+    int new_len = strlen(*res_string) + strlen(header) + 2 + strlen(value) + 2 + 1;
 
-    res_string = realloc(res_string, new_len);
+    *res_string = realloc(*res_string, new_len);
 
-    strcat(res_string, header);
-    strcat(res_string, ": ");
-    strcat(res_string, value);
-    strcat(res_string, "\r\n");
+    strcat(*res_string, header);
+    strcat(*res_string, ": ");
+    strcat(*res_string, value);
+    strcat(*res_string, "\r\n");
 }
 
-void append_int_header(char *res_string, const char *header, int value) {
+void append_int_header(char **res_string, const char *header, int value) {
     char buf[16];
     sprintf(buf, "%d", value);
 
     append_txt_header(res_string, header, buf);
 }
 
-void append_body(char *res_string, const char *body) {
-    int new_len = strlen(res_string) + strlen(body) + 2 + 1;
+void append_body(char **res_string, const char *body) {
+    int new_len = strlen(*res_string) + strlen(body) + 2 + 1;
 
-    res_string = realloc(res_string, new_len);
+    *res_string = realloc(*res_string, new_len);
 
-    strcat(res_string, "\r\n");
-    strcat(res_string, body);
+    strcat(*res_string, "\r\n");
+    strcat(*res_string, body);
 }
 
 void thun_send_response_200(thun_response *res) {
     char *res_string = init_response_string(STATUS_SUCCESS_OK);
 
-    append_int_header(res_string, "content-length", strlen(res->body));
-    append_txt_header(res_string, "content-type", "text/html");
+    append_int_header(&res_string, "Content-Length", strlen(res->body));
+    append_txt_header(&res_string, "Content-Type", "text/html");
 
-    append_body(res_string, res->body);
+    append_body(&res_string, res->body);
 
-    int r = write(res->socket, res_string, strlen(res_string));
+    int bytes_to_write = strlen(res_string);
+    int total_bytes_written = 0;
 
-    if (r < 0)
-        thunder_fatal("failed to write to socket");
+    while (bytes_to_write > 0) {
+        int bytes_written = write(
+            res->socket,
+            res_string + total_bytes_written,
+            bytes_to_write - total_bytes_written);
+
+        if (bytes_written < 0)
+            thunder_fatal("failed to write to socket");
+
+        total_bytes_written += bytes_written;
+        bytes_to_write -= bytes_written;
+    }
 }

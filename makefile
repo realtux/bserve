@@ -2,8 +2,8 @@ CC=gcc
 CFLAGS=-std=c99 \
 	-O3 -Wall -Wextra -Wundef -Wfloat-equal -Wpointer-arith -Wcast-align \
 	-Wstrict-prototypes -Wno-missing-field-initializers -Warray-bounds \
-	-pedantic -fstrict-aliasing
-LINKS=-lpcre -lpthread
+	-pedantic -fstrict-aliasing -g
+LINKS=-lpthread
 INCLUDES=-I. -I./src
 
 LIB_OBJS =

@@ -4,11 +4,11 @@
 typedef struct {
     char *key;
     char *value;
-} header;
+} req_header;
 
 typedef struct {
     int count;
-    header *headers;
+    req_header *headers;
 } req_headers;
 
 void *accept_request(void*);
