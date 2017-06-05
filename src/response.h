@@ -5,6 +5,7 @@
 
 typedef struct {
     int socket;
+    int length;
     char *body;
 } thun_response;
 

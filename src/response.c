@@ -13,6 +13,7 @@ thun_response *thun_init_response(void) {
         thunder_fatal("memory allocation error");
     }
 
+    response->length = 0;
     response->body = NULL;
 
     return response;
@@ -56,24 +57,26 @@ void append_int_header(char **res_string, const char *header, int value) {
     append_txt_header(res_string, header, buf);
 }
 
-void append_body(char **res_string, const char *body) {
-    int new_len = strlen(*res_string) + strlen(body) + 2 + 1;
+void append_body(char **res_string, thun_response *response) {
+    int new_len = strlen(*res_string) + response->length + 2 + 1;
 
     *res_string = realloc(*res_string, new_len);
 
     strcat(*res_string, "\r\n");
-    strcat(*res_string, body);
+    strcat(*res_string, response->body);
 }
 
 void thun_send_response_200(thun_response *res) {
     char *res_string = init_response_string(STATUS_SUCCESS_OK);
 
-    append_int_header(&res_string, "Content-Length", strlen(res->body));
+    append_int_header(&res_string, "Content-Length", res->length);
     append_txt_header(&res_string, "Content-Type", "text/html");
 
-    append_body(&res_string, res->body);
+    int header_size = strlen(res_string) + 2;
 
-    int bytes_to_write = strlen(res_string);
+    append_body(&res_string, res);
+
+    int bytes_to_write = header_size + res->length;
     int total_bytes_written = 0;
 
     while (bytes_to_write > 0) {

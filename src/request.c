@@ -267,10 +267,11 @@ void *accept_request(void *arg) {
     printf("%s /%s\n", method, path);
 
     if (strcmp(path, "") != 0) {
-        FILE *fp = fopen(path, "r");
+        FILE *fp = fopen(path, "rb");
 
         if (fp == NULL) {
             response->body = realloc(response->body, 15 * sizeof(char));
+            response->length = 14;
             strcpy(response->body, "file not found");
 
             thun_send_response_200(response);
@@ -283,9 +284,10 @@ void *accept_request(void *arg) {
                 response->body[ch_read-1] = ch;
             }
 
-            response->body[ch_read] = '\0';
-
             fclose(fp);
+
+            response->body[ch_read] = '\0';
+            response->length = ch_read;
 
             thun_send_response_200(response);
         }
@@ -293,6 +295,7 @@ void *accept_request(void *arg) {
         printf("falling back to rules\n");
 
         response->body = realloc(response->body, 15 * sizeof(char));
+        response->length = 14;
         strcpy(response->body, "file not found");
 
         thun_send_response_200(response);
@@ -302,6 +305,8 @@ void *accept_request(void *arg) {
 
     // eat res
     while (recv(conn_fd, c, 1, 0) > 0);
+
+    close(conn_fd);
 
     // cleanup request
     free(path);
@@ -313,8 +318,6 @@ void *accept_request(void *arg) {
 
     // cleanup response
     thun_dealloc_response(response);
-
-    close(conn_fd);
 
     return NULL;
 }
