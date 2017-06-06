@@ -1,3 +1,4 @@
 build/objs/*.o
-/thunder
+/bserve
 /index.html
+/cat.jpg

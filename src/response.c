@@ -4,27 +4,28 @@
 #include <unistd.h>
 
 #include "error.h"
+#include "request.h"
 #include "response.h"
 
-thun_response *thun_init_response(void) {
-    thun_response *response = malloc(sizeof(thun_response));
+bs_response *bs_init_response(void) {
+    bs_response *response = malloc(sizeof(bs_response));
 
     if (response == NULL) {
-        thunder_fatal("memory allocation error");
+        bserve_fatal("memory allocation error");
     }
 
-    response->length = 0;
+    response->body_len = 0;
     response->body = NULL;
 
     return response;
 }
 
-void thun_dealloc_response(thun_response *response) {
+void bs_dealloc_response(bs_response *response) {
     if (response->body != NULL) free(response->body);
     free(response);
 }
 
-char *init_response_string(int code) {
+char *init_header_string(int code) {
     char *http = "HTTP/1.1";
 
     char buffer[32];
@@ -57,38 +58,49 @@ void append_int_header(char **res_string, const char *header, int value) {
     append_txt_header(res_string, header, buf);
 }
 
-void append_body(char **res_string, thun_response *response) {
-    int new_len = strlen(*res_string) + response->length + 2 + 1;
+void terminate_headers(char **res_string) {
+    int new_len = strlen(*res_string) + 2 + 1;
 
     *res_string = realloc(*res_string, new_len);
 
     strcat(*res_string, "\r\n");
-    strcat(*res_string, response->body);
 }
 
-void thun_send_response_200(thun_response *res) {
-    char *res_string = init_response_string(STATUS_SUCCESS_OK);
-
-    append_int_header(&res_string, "Content-Length", res->length);
-    append_txt_header(&res_string, "Content-Type", "text/html");
-
-    int header_size = strlen(res_string) + 2;
-
-    append_body(&res_string, res);
-
-    int bytes_to_write = header_size + res->length;
+void transmit_data(int fd, const char *data, int size) {
     int total_bytes_written = 0;
 
-    while (bytes_to_write > 0) {
-        int bytes_written = write(
-            res->socket,
-            res_string + total_bytes_written,
-            bytes_to_write - total_bytes_written);
+    while (size > 0) {
+        int bytes_written = write(fd, data + total_bytes_written, size);
 
         if (bytes_written < 0)
-            thunder_fatal("failed to write to socket");
+            bserve_fatal("failed to write to socket");
 
         total_bytes_written += bytes_written;
-        bytes_to_write -= bytes_written;
+        size -= bytes_written;
     }
+}
+
+void bs_send_response_200(bs_request *request, bs_response *response) {
+    char *headers = init_header_string(STATUS_SUCCESS_OK);
+
+    append_int_header(&headers, "Content-Length", response->body_len);
+
+    if (strstr(request->path, ".html")) {
+        append_txt_header(&headers, "Content-Type", "text/html");
+    } else if (strstr(request->path, ".js")) {
+        append_txt_header(&headers, "Content-Type", "application/javascript");
+    } else if (strstr(request->path, ".css")) {
+        append_txt_header(&headers, "Content-Type", "text/css");
+    } else if (strstr(request->path, ".jpg") || strstr(request->path, ".jpeg")) {
+        append_txt_header(&headers, "Content-Type", "image/jpeg");
+    } else if (strstr(request->path, ".png")) {
+        append_txt_header(&headers, "Content-Type", "text/png");
+    } else {
+        append_txt_header(&headers, "Content-Type", "application/octet-stream");
+    }
+
+    terminate_headers(&headers);
+
+    transmit_data(response->socket, headers, strlen(headers));
+    transmit_data(response->socket, response->body, response->body_len);
 }

@@ -11,6 +11,15 @@ typedef struct {
     req_header *headers;
 } req_headers;
 
+typedef struct {
+    char *method;
+    char *url;
+    char *path;
+    char *version;
+    char *body;
+    req_headers *header_set;
+} bs_request;
+
 void *accept_request(void*);
 
 #endif

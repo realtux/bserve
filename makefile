@@ -10,9 +10,9 @@ LIB_OBJS =
 LIB_OBJS += build/objs/error.o
 LIB_OBJS += build/objs/request.o
 LIB_OBJS += build/objs/response.o
-LIB_OBJS += build/objs/thunder.o
+LIB_OBJS += build/objs/bserve.o
 
-EXEC=thunder
+EXEC=bserve
 
 all: $(EXEC)
 	@echo ""

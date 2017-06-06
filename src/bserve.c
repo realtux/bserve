@@ -38,7 +38,7 @@ int main(void) {
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sock_fd < 0)
-        thunder_fatal("opening socket failed");
+        bserve_fatal("opening socket failed");
 
     memset(&server_addr, 0, sizeof(server_addr));
 
@@ -49,7 +49,7 @@ int main(void) {
     int bind_res = bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
     if (bind_res < 0)
-        thunder_fatal("address binding failed");
+        bserve_fatal("address binding failed");
 
     listen(sock_fd, 5);
 
@@ -57,12 +57,12 @@ int main(void) {
         int *conn_fd = malloc(sizeof(int));
 
         if (conn_fd == NULL)
-            thunder_fatal("unable to allocate memory");
+            bserve_fatal("unable to allocate memory");
 
         *conn_fd = accept(sock_fd, (struct sockaddr *) &client_addr, &client_addr_size);
 
         if (*conn_fd < 0)
-            thunder_fatal("connection accept failed");
+            bserve_fatal("connection accept failed");
 
         pthread_create(&thread, &thread_attr, accept_request, conn_fd);
     }

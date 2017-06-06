@@ -8,20 +8,7 @@
 #include "request.h"
 #include "response.h"
 
-req_headers *thun_init_headers(void) {
-    req_headers *headers = malloc(1 * sizeof(req_headers));
-
-    if (headers == NULL) {
-        thunder_fatal("memory allocation error");
-    }
-
-    headers->count = 0;
-    headers->headers = NULL;
-
-    return headers;
-}
-
-req_header *thun_init_header(req_headers *headers) {
+req_header *bs_init_header(req_headers *headers) {
     headers->count++;
     headers->headers = realloc(headers->headers, headers->count * sizeof(req_header));
 
@@ -36,16 +23,62 @@ req_header *thun_init_header(req_headers *headers) {
     return header;
 }
 
-void thun_dealloc_headers(req_headers *headers) {
-    int i;
+req_headers *bs_init_headers(void) {
+    req_headers *headers = malloc(1 * sizeof(req_headers));
 
-    for (i = 0; i < headers->count; ++i) {
-        free(headers->headers[i].key);
-        free(headers->headers[i].value);
+    if (headers == NULL) {
+        bserve_fatal("memory allocation error");
     }
 
-    if (headers->headers != NULL) free(headers->headers);
-    free(headers);
+    headers->count = 0;
+    headers->headers = NULL;
+
+    return headers;
+}
+
+bs_request *bs_init_request(void) {
+    bs_request *request = malloc(1 * sizeof(bs_request));
+
+    if (request == NULL) {
+        bserve_fatal("memory allocation error");
+    }
+
+    request->method = malloc(1 * sizeof(char));
+    request->url = malloc(1 * sizeof(char));
+    request->path = malloc(1 * sizeof(char));
+    request->version = malloc(1 * sizeof(char));
+    request->body = malloc(1 * sizeof(char));
+
+    *request->method = '\0';
+    *request->url = '\0';
+    *request->path = '\0';
+    *request->version = '\0';
+    *request->body = '\0';
+
+    request->header_set = bs_init_headers();
+
+    return request;
+}
+
+void bs_dealloc_request(bs_request *request) {
+    int i;
+
+    if (request->header_set != NULL) {
+        for (i = 0; i < request->header_set->count; ++i) {
+            free(request->header_set->headers[i].key);
+            free(request->header_set->headers[i].value);
+        }
+
+        if (request->header_set->headers != NULL) free(request->header_set->headers);
+    }
+
+    free(request->method);
+    free(request->url);
+    free(request->path);
+    free(request->version);
+    free(request->body);
+    free(request->header_set);
+    free(request);
 }
 
 int get_content_length(req_headers *headers) {
@@ -79,12 +112,14 @@ char *get_path(const char *url) {
     return path;
 }
 
-void dump_headers(req_headers *headers) {
+void dump_headers(bs_request *request) {
     int i;
 
     printf("headers:\n");
-    for (i = 0; i < headers->count; ++i) {
-        printf("  %s: %s\n", headers->headers[i].key, headers->headers[i].value);
+    for (i = 0; i < request->header_set->count; ++i) {
+        printf("  %s: %s\n",
+            request->header_set->headers[i].key,
+            request->header_set->headers[i].value);
     }
 }
 
@@ -96,21 +131,8 @@ void *accept_request(void *arg) {
     int len = 0;
 
     char c[2]; c[1] = '\0';
-    char *method = malloc(1 * sizeof(char));
-    char *url = malloc(1 * sizeof(char));
-    char *version = malloc(1 * sizeof(char));
-    char *body = malloc(1 * sizeof(char));
 
-    if (method == NULL || url == NULL || version == NULL || body == NULL) {
-        thunder_fatal("memory allocation error");
-    }
-
-    *method = '\0';
-    *url = '\0';
-    *version = '\0';
-    *body = '\0';
-
-    req_headers *headers = thun_init_headers();
+    bs_request *request = bs_init_request();
 
     int bytes_read;
 
@@ -123,13 +145,13 @@ void *accept_request(void *arg) {
         }
 
         ++len;
-        method = realloc(method, (len + 1) * sizeof(char));
+        request->method = realloc(request->method, (len + 1) * sizeof(char));
 
-        if (method == NULL) {
-            thunder_fatal("memory allocation error");
+        if (request->method == NULL) {
+            bserve_fatal("memory allocation error");
         }
 
-        strncat(method, c, 1);
+        strncat(request->method, c, 1);
     }
 
     len = 0;
@@ -143,13 +165,13 @@ void *accept_request(void *arg) {
         }
 
         ++len;
-        url = realloc(url, (len + 1) * sizeof(char));
+        request->url = realloc(request->url, (len + 1) * sizeof(char));
 
-        if (url == NULL) {
-            thunder_fatal("memory allocation error");
+        if (request->url == NULL) {
+            bserve_fatal("memory allocation error");
         }
 
-        strncat(url, c, 1);
+        strncat(request->url, c, 1);
     }
 
     len = 0;
@@ -166,13 +188,13 @@ void *accept_request(void *arg) {
 
         ++len;
 
-        version = realloc(version, (len + 1) * sizeof(char));
+        request->version = realloc(request->version, (len + 1) * sizeof(char));
 
-        if (version == NULL) {
-            thunder_fatal("memory allocation error");
+        if (request->version == NULL) {
+            bserve_fatal("memory allocation error");
         }
 
-        strncat(version, c, 1);
+        strncat(request->version, c, 1);
     }
 
     len = 0;
@@ -187,7 +209,7 @@ void *accept_request(void *arg) {
         }
 
         // create new header and extract
-        req_header *header = thun_init_header(headers);
+        req_header *header = bs_init_header(request->header_set);
 
         // extract header key
         len = 0;
@@ -228,10 +250,10 @@ void *accept_request(void *arg) {
         }
     }
 
-    int content_length = get_content_length(headers);
+    int content_length = get_content_length(request->header_set);
 
     // extract body if necessary
-    if (content_length > 0 && strcmp(method, "GET") != 0) {
+    if (content_length > 0 && strcmp(request->method, "GET") != 0) {
         // eat crlf
         bytes_read = recv(conn_fd, c, 1, 0);
         bytes_read = recv(conn_fd, c, 1, 0);
@@ -243,38 +265,46 @@ void *accept_request(void *arg) {
 
             ++len;
 
-            body = realloc(body, (len + 1) * sizeof(char));
+            request->body = realloc(request->body, (len + 1) * sizeof(char));
 
-            if (body == NULL) {
-                thunder_fatal("memory allocation error");
+            if (request->body == NULL) {
+                bserve_fatal("memory allocation error");
             }
 
-            strncat(body, c, 1);
+            strncat(request->body, c, 1);
         }
     }
 
-    // printf("method: %s\n", method);
-    // printf("url: %s\n", url);
-    // printf("version: %s\n", version);
-    // dump_headers(headers);
-    // printf("body: %s\n", body);
-
-    thun_response *response = thun_init_response();
+    bs_response *response = bs_init_response();
     response->socket = conn_fd;
 
-    // do something with request
-    char *path = get_path(url);
-    printf("%s /%s\n", method, path);
+    char *path = get_path(request->url);
+    request->path = realloc(request->path, (strlen(path) + 1) * sizeof(char));
+    strcpy(request->path, path);
+    free(path);
 
-    if (strcmp(path, "") != 0) {
-        FILE *fp = fopen(path, "rb");
+    if (strcmp(request->method, "") == 0) {
+        printf("invalid request, tearing down\n");
+        goto teardown_conn;
+    }
+
+    printf("%s /%s\n", request->method, request->path);
+
+    // printf("method: %s\n", request->method);
+    // printf("url: %s\n", request->url);
+    // printf("version: %s\n", request->version);
+    //dump_headers(request);
+    // printf("body: %s\n", request->body);
+
+    if (strcmp(request->path, "") != 0) {
+        FILE *fp = fopen(request->path, "rb");
 
         if (fp == NULL) {
             response->body = realloc(response->body, 15 * sizeof(char));
-            response->length = 14;
+            response->body_len = 14;
             strcpy(response->body, "file not found");
 
-            thun_send_response_200(response);
+            bs_send_response_200(request, response);
         } else {
             int ch;
             int ch_read = 0;
@@ -287,20 +317,21 @@ void *accept_request(void *arg) {
             fclose(fp);
 
             response->body[ch_read] = '\0';
-            response->length = ch_read;
+            response->body_len = ch_read;
 
-            thun_send_response_200(response);
+            bs_send_response_200(request, response);
         }
     } else {
         printf("falling back to rules\n");
 
         response->body = realloc(response->body, 15 * sizeof(char));
-        response->length = 14;
+        response->body_len = 14;
         strcpy(response->body, "file not found");
 
-        thun_send_response_200(response);
+        bs_send_response_200(request, response);
     }
 
+    teardown_conn:
     shutdown(conn_fd, SHUT_WR);
 
     // eat res
@@ -308,16 +339,9 @@ void *accept_request(void *arg) {
 
     close(conn_fd);
 
-    // cleanup request
-    free(path);
-    free(method);
-    free(url);
-    free(version);
-    free(body);
-    thun_dealloc_headers(headers);
-
-    // cleanup response
-    thun_dealloc_response(response);
+    // cleanup
+    bs_dealloc_request(request);
+    bs_dealloc_response(response);
 
     return NULL;
 }
