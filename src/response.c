@@ -84,6 +84,7 @@ void bs_send_response_200(bs_request *request, bs_response *response) {
     char *headers = init_header_string(STATUS_SUCCESS_OK);
 
     append_int_header(&headers, "Content-Length", response->body_len);
+    append_txt_header(&headers, "Server", "bserv/0.0.1");
 
     if (strstr(request->path, ".html")) {
         append_txt_header(&headers, "Content-Type", "text/html");
