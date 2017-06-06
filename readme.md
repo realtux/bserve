@@ -9,3 +9,13 @@ The no frills http server from outer space.
 #### Project Goals:
  - No compromise on speed
  - RFC-2616 compliant
+
+---
+
+#### Installation
+```
+git clone https://github.com/ebrian/bserve
+cd bserve
+make
+sudo make install
+```
