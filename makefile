@@ -26,3 +26,6 @@ $(LIB_OBJS): build/objs/%.o: src/%.c
 
 clean:
 	find . -type f -name '*.o' -delete
+
+install:
+	sudo cp bserve /usr/local/bin
