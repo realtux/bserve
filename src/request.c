@@ -296,39 +296,30 @@ void *accept_request(void *arg) {
     //dump_headers(request);
     // printf("body: %s\n", request->body);
 
-    if (strcmp(request->path, "") != 0) {
-        FILE *fp = fopen(request->path, "rb");
+    if (strcmp(request->path, "") == 0) {
+        request->path = realloc(request->path, 11 * sizeof(char));
+        strcpy(request->path, "index.html");
+    }
 
-        if (fp == NULL) {
-            response->body = realloc(response->body, 15 * sizeof(char));
-            response->body_len = 14;
-            strcpy(response->body, "file not found");
+    FILE *fp = fopen(request->path, "rb");
 
-            bs_send_response_200(request, response);
-        } else {
-            int ch;
-            int ch_read = 0;
-            while ((ch = fgetc(fp)) != EOF) {
-                ++ch_read;
-                response->body = realloc(response->body, (ch_read + 1) * sizeof(char));
-                response->body[ch_read-1] = ch;
-            }
-
-            fclose(fp);
-
-            response->body[ch_read] = '\0';
-            response->body_len = ch_read;
-
-            bs_send_response_200(request, response);
-        }
+    if (fp == NULL) {
+        bs_send_response(STATUS_CLIENT_ERROR_NOT_FOUND, request, response);
     } else {
-        printf("falling back to rules\n");
+        int ch;
+        int ch_read = 0;
+        while ((ch = fgetc(fp)) != EOF) {
+            ++ch_read;
+            response->body = realloc(response->body, (ch_read + 1) * sizeof(char));
+            response->body[ch_read-1] = ch;
+        }
 
-        response->body = realloc(response->body, 15 * sizeof(char));
-        response->body_len = 14;
-        strcpy(response->body, "file not found");
+        fclose(fp);
 
-        bs_send_response_200(request, response);
+        response->body[ch_read] = '\0';
+        response->body_len = ch_read;
+
+        bs_send_response(STATUS_SUCCESS_OK, request, response);
     }
 
     teardown_conn:

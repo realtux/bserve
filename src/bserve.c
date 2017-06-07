@@ -11,8 +11,11 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include "config.h"
 #include "error.h"
 #include "request.h"
+
+extern bs_config config;
 
 int sock_fd;
 
@@ -22,8 +25,9 @@ void term(int signo) {
     exit(0);
 }
 
-//int main(int argc, char **argv) {
-int main(void) {
+int main(int argc, char **argv) {
+    bs_config_parse_opts(argc, argv);
+
     signal(SIGTERM, term);
     signal(SIGINT, term);
 
@@ -43,8 +47,8 @@ int main(void) {
     memset(&server_addr, 0, sizeof(server_addr));
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    server_addr.sin_port = htons(8080);
+    server_addr.sin_addr.s_addr = inet_addr(config.host_selected ? config.host : "127.0.0.1");
+    server_addr.sin_port = htons(config.port_selected ? atoi(config.port) : 8080);
 
     int bind_res = bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 

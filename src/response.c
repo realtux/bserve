@@ -31,6 +31,10 @@ char *init_header_string(int code) {
     char buffer[32];
     if (code == STATUS_SUCCESS_OK)
         strcpy(buffer, "OK");
+    if (code == STATUS_CLIENT_ERROR_NOT_FOUND)
+        strcpy(buffer, "Not Found");
+    if (code == STATUS_SERVER_ERROR_INTERNAL_SERVER_ERROR)
+        strcpy(buffer, "Internal Server Error");
 
     int res_strlen = strlen(http) + 1 + 3 + 1 + strlen(buffer) + 3;
 
@@ -80,26 +84,35 @@ void transmit_data(int fd, const char *data, int size) {
     }
 }
 
-void bs_send_response_200(bs_request *request, bs_response *response) {
-    char *headers = init_header_string(STATUS_SUCCESS_OK);
+void bs_send_response(int code, bs_request *request, bs_response *response) {
+    char *headers = init_header_string(code);
 
-    append_int_header(&headers, "Content-Length", response->body_len);
     append_txt_header(&headers, "Server", "bserv/0.0.1");
 
-    if (strstr(request->path, ".html")) {
-        append_txt_header(&headers, "Content-Type", "text/html");
-    } else if (strstr(request->path, ".js")) {
-        append_txt_header(&headers, "Content-Type", "application/javascript");
-    } else if (strstr(request->path, ".css")) {
-        append_txt_header(&headers, "Content-Type", "text/css");
-    } else if (strstr(request->path, ".jpg") || strstr(request->path, ".jpeg")) {
-        append_txt_header(&headers, "Content-Type", "image/jpeg");
-    } else if (strstr(request->path, ".png")) {
-        append_txt_header(&headers, "Content-Type", "text/png");
-    } else {
-        append_txt_header(&headers, "Content-Type", "application/octet-stream");
+    // handle 404
+    if (code == STATUS_SUCCESS_OK) {
+        if (strstr(request->path, ".html")) {
+            append_txt_header(&headers, "Content-Type", "text/html");
+        } else if (strstr(request->path, ".js")) {
+            append_txt_header(&headers, "Content-Type", "application/javascript");
+        } else if (strstr(request->path, ".css")) {
+            append_txt_header(&headers, "Content-Type", "text/css");
+        } else if (strstr(request->path, ".jpg") || strstr(request->path, ".jpeg")) {
+            append_txt_header(&headers, "Content-Type", "image/jpeg");
+        } else if (strstr(request->path, ".png")) {
+            append_txt_header(&headers, "Content-Type", "text/png");
+        } else {
+            append_txt_header(&headers, "Content-Type", "application/octet-stream");
+        }
+    } else if (code == STATUS_CLIENT_ERROR_NOT_FOUND) {
+        append_txt_header(&headers, "Content-Type", "text/plain");
+
+        response->body = realloc(response->body, 20 * sizeof(char));
+        response->body_len = 19;
+        strcpy(response->body, "404: file not found");
     }
 
+    append_int_header(&headers, "Content-Length", response->body_len);
     terminate_headers(&headers);
 
     transmit_data(response->socket, headers, strlen(headers));
