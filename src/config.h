@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#define BSERVE_VERSION "0.0.1"
+
 typedef struct {
     int host_selected;
     char *host;

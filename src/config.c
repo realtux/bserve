@@ -7,6 +7,13 @@
 
 bs_config config;
 
+void menu(void) {
+    printf(
+        "usage: bserve [--version] [--help] [-h source_host] [-p source_port]\n"
+        "              [-r doc_root]\n"
+    );
+}
+
 void bs_dump_config(void) {
     printf("config options:\n");
     printf("  host_selected: %d\n", config.host_selected);
@@ -24,7 +31,13 @@ void bs_config_parse_opts(int argc, char **argv) {
     if (argc <= 1) return;
 
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--host") == 0) {
+        if (strcmp(argv[i], "--version") == 0) {
+            printf("%s\n", BSERVE_VERSION);
+            exit(0);
+        } else if (strcmp(argv[i], "--help") == 0) {
+            menu();
+            exit(0);
+        } else if (strcmp(argv[i], "-h") == 0) {
             if (i + 1 >= argc) bserve_fatal("too few arguments");
 
             config.host_selected = 1;
@@ -32,7 +45,7 @@ void bs_config_parse_opts(int argc, char **argv) {
             strcpy(config.host, argv[i+1]);
 
             ++i;
-        } else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--port") == 0) {
+        } else if (strcmp(argv[i], "-p") == 0) {
             if (i + 1 >= argc) bserve_fatal("too few arguments");
 
             config.port_selected = 1;
