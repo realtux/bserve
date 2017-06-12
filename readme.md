@@ -14,7 +14,7 @@ The no frills http server from outer space.
 
 #### Installation
 ```
-git clone https:/* github.com/ebrian/bserve */
+git clone https://github.com/ebrian/bserve
 cd bserve
 make
 sudo make install
