@@ -26,7 +26,7 @@ void bs_dealloc_response(bs_response *response) {
 }
 
 char *init_header_string(int code) {
-    char *http = "HTTP/1.1";
+    const char *http = "HTTP/1.1";
     char buffer[32];
     int res_strlen;
     char *response_string;

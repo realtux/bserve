@@ -1,8 +1,9 @@
 CC=gcc
 CFLAGS=-std=c89 \
-	-O3 -Wall -Wextra -Wundef -Wfloat-equal -Wpointer-arith -Wcast-align \
-	-Wstrict-prototypes -Wno-missing-field-initializers -Warray-bounds \
-	-pedantic -fstrict-aliasing -g
+	-O3 -Wall -Wextra -Wundef -Wfloat-equal -Wpointer-arith \
+	-Wcast-align -Wstrict-prototypes -Wno-missing-field-initializers \
+	-Warray-bounds -Wwrite-strings -pedantic -fstrict-aliasing \
+	-Wshadow -Wswitch-default -Wswitch-enum -g
 LINKS=-lpthread
 INCLUDES=-I. -I./src
 
