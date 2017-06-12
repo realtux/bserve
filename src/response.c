@@ -27,8 +27,10 @@ void bs_dealloc_response(bs_response *response) {
 
 char *init_header_string(int code) {
     char *http = "HTTP/1.1";
-
     char buffer[32];
+    int res_strlen;
+    char *response_string;
+
     if (code == STATUS_SUCCESS_OK)
         strcpy(buffer, "OK");
     if (code == STATUS_CLIENT_ERROR_NOT_FOUND)
@@ -36,10 +38,10 @@ char *init_header_string(int code) {
     if (code == STATUS_SERVER_ERROR_INTERNAL_SERVER_ERROR)
         strcpy(buffer, "Internal Server Error");
 
-    int res_strlen = strlen(http) + 1 + 3 + 1 + strlen(buffer) + 3;
+    res_strlen = strlen(http) + 1 + 3 + 1 + strlen(buffer) + 3;
 
-    char *response_string = malloc(res_strlen * sizeof(char));
-    snprintf(response_string, res_strlen, "%s %d %s\r\n", http, code, buffer);
+    response_string = malloc(res_strlen * sizeof(char));
+    sprintf(response_string, "%s %d %s\r\n", http, code, buffer);
 
     return response_string;
 }
@@ -89,7 +91,7 @@ void bs_send_response(int code, bs_request *request, bs_response *response) {
 
     append_txt_header(&headers, "Server", "bserv/0.0.1");
 
-    // handle 404
+    /* handle 404 */
     if (code == STATUS_SUCCESS_OK) {
         if (strstr(request->path, ".html")) {
             append_txt_header(&headers, "Content-Type", "text/html");
@@ -101,6 +103,8 @@ void bs_send_response(int code, bs_request *request, bs_response *response) {
             append_txt_header(&headers, "Content-Type", "image/jpeg");
         } else if (strstr(request->path, ".png")) {
             append_txt_header(&headers, "Content-Type", "text/png");
+        } else if (strstr(request->path, ".ico")) {
+            append_txt_header(&headers, "Content-Type", "image/x-icon");
         } else {
             append_txt_header(&headers, "Content-Type", "application/octet-stream");
         }

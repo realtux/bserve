@@ -23,6 +23,8 @@ void bs_dump_config(void) {
 }
 
 void bs_config_parse_opts(int argc, char **argv) {
+    int i;
+
     config.host_selected = 0;
     config.host = NULL;
     config.port_selected = 0;
@@ -30,7 +32,7 @@ void bs_config_parse_opts(int argc, char **argv) {
 
     if (argc <= 1) return;
 
-    for (int i = 1; i < argc; ++i) {
+    for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--version") == 0) {
             printf("%s\n", BSERVE_VERSION);
             exit(0);

@@ -26,18 +26,20 @@ void term(int signo) {
 }
 
 int main(int argc, char **argv) {
-    bs_config_parse_opts(argc, argv);
-
-    signal(SIGTERM, term);
-    signal(SIGINT, term);
-
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
     socklen_t client_addr_size = sizeof(client_addr);
     pthread_t thread;
     pthread_attr_t thread_attr;
+    int bind_res;
+
     pthread_attr_init(&thread_attr);
     pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_DETACHED);
+
+    bs_config_parse_opts(argc, argv);
+
+    signal(SIGTERM, term);
+    signal(SIGINT, term);
 
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -50,7 +52,7 @@ int main(int argc, char **argv) {
     server_addr.sin_addr.s_addr = inet_addr(config.host_selected ? config.host : "127.0.0.1");
     server_addr.sin_port = htons(config.port_selected ? atoi(config.port) : 8080);
 
-    int bind_res = bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    bind_res = bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
     if (bind_res < 0)
         bserve_fatal("address binding failed");

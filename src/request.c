@@ -1,7 +1,10 @@
+#define _BSD_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "error.h"
@@ -9,10 +12,12 @@
 #include "response.h"
 
 req_header *bs_init_header(req_headers *headers) {
+    req_header *header;
+
     headers->count++;
     headers->headers = realloc(headers->headers, headers->count * sizeof(req_header));
 
-    req_header *header = &headers->headers[headers->count-1];
+    header = &headers->headers[headers->count-1];
 
     header->key = malloc(1 * sizeof(char));
     header->value = malloc(1 * sizeof(char));
@@ -94,11 +99,10 @@ int get_content_length(req_headers *headers) {
 }
 
 char *get_path(const char *url) {
-    char *path = malloc(1 * sizeof(char));
-    *path = '\0';
-
     int i;
     int path_len = 0;
+    char *path = malloc(1 * sizeof(char));
+    *path = '\0';
 
     for (i = 0; i < (int)strlen(url); ++i) {
         if (i == 0 && url[i] == '/') continue;
@@ -125,18 +129,28 @@ void dump_headers(bs_request *request) {
 
 void *accept_request(void *arg) {
     int conn_fd = *((int *)arg);
+    int len = 0;
+    int bytes_read;
+    char c[2];
+    char *path;
+    bs_request *request;
+    req_header *header;
+    bs_response *response;
+    int content_length;
+    int ch;
+    int ch_read = 0;
+    char command[256];
+    FILE *fp;
+    FILE *inbound_json;
+    FILE *syscom;
 
     free(arg);
 
-    int len = 0;
+    c[1] = '\0';
 
-    char c[2]; c[1] = '\0';
+    request = bs_init_request();
 
-    bs_request *request = bs_init_request();
-
-    int bytes_read;
-
-    // extract method
+    /* extract method */
     for (;;) {
         bytes_read = recv(conn_fd, c, 1, 0);
 
@@ -156,7 +170,7 @@ void *accept_request(void *arg) {
 
     len = 0;
 
-    // extract url
+    /* extract url */
     for (;;) {
         bytes_read = recv(conn_fd, c, 1, 0);
 
@@ -176,12 +190,12 @@ void *accept_request(void *arg) {
 
     len = 0;
 
-    // extract version
+    /* extract version */
     for (;;) {
         bytes_read = recv(conn_fd, c, 1, 0);
 
         if (*c == '\r' || bytes_read <= 0) {
-            // eat newline
+            /* eat newline */
             bytes_read = recv(conn_fd, c, 1, 0);
             break;
         }
@@ -199,26 +213,26 @@ void *accept_request(void *arg) {
 
     len = 0;
 
-    // extract headers
+    /* extract headers */
     for (;;) {
         bytes_read = recv(conn_fd, c, 1, MSG_PEEK);
 
         if (*c == '\r' || bytes_read <= 0) {
-            // response done reading
+            /* response done reading */
             break;
         }
 
-        // create new header and extract
-        req_header *header = bs_init_header(request->header_set);
+        /* create new header and extract */
+        header = bs_init_header(request->header_set);
 
-        // extract header key
+        /* extract header key */
         len = 0;
 
         for (;;) {
             bytes_read = recv(conn_fd, c, 1, 0);
 
             if (*c == ':' || bytes_read <= 0) {
-                // eat space
+                /* eat space */
                 bytes_read = recv(conn_fd, c, 1, 0);
                 break;
             }
@@ -232,12 +246,12 @@ void *accept_request(void *arg) {
 
         len = 0;
 
-        // extract header value
+        /* extract header value */
         for (;;) {
             bytes_read = recv(conn_fd, c, 1, 0);
 
             if (*c == '\r' || bytes_read <= 0) {
-                // eat newline
+                /* eat newline */
                 bytes_read = recv(conn_fd, c, 1, 0);
                 break;
             }
@@ -250,11 +264,11 @@ void *accept_request(void *arg) {
         }
     }
 
-    int content_length = get_content_length(request->header_set);
+    content_length = get_content_length(request->header_set);
 
-    // extract body if necessary
+    /* extract body if necessary */
     if (content_length > 0 && strcmp(request->method, "GET") != 0) {
-        // eat crlf
+        /* eat crlf */
         bytes_read = recv(conn_fd, c, 1, 0);
         bytes_read = recv(conn_fd, c, 1, 0);
 
@@ -275,10 +289,10 @@ void *accept_request(void *arg) {
         }
     }
 
-    bs_response *response = bs_init_response();
+    response = bs_init_response();
     response->socket = conn_fd;
 
-    char *path = get_path(request->url);
+    path = get_path(request->url);
     request->path = realloc(request->path, (strlen(path) + 1) * sizeof(char));
     strcpy(request->path, path);
     free(path);
@@ -290,47 +304,71 @@ void *accept_request(void *arg) {
 
     printf("%s /%s\n", request->method, request->path);
 
-    // printf("method: %s\n", request->method);
-    // printf("url: %s\n", request->url);
-    // printf("version: %s\n", request->version);
-    //dump_headers(request);
-    // printf("body: %s\n", request->body);
+    /*printf("method: %s\n", request->method);
+    printf("url: %s\n", request->url);
+    printf("version: %s\n", request->version);
+    dump_headers(request);
+    printf("body: %s\n", request->body);*/
 
     if (strcmp(request->path, "") == 0) {
         request->path = realloc(request->path, 11 * sizeof(char));
         strcpy(request->path, "index.html");
     }
 
-    FILE *fp = fopen(request->path, "rb");
+    if (0) { /* todo: replace ipc via file with mmap or sockets */
+        char json_buf[128];
+        sprintf(json_buf, "/tmp/bserve/%d.json", response->socket);
 
-    if (fp == NULL) {
-        bs_send_response(STATUS_CLIENT_ERROR_NOT_FOUND, request, response);
-    } else {
-        int ch;
-        int ch_read = 0;
-        while ((ch = fgetc(fp)) != EOF) {
+        inbound_json = fopen(json_buf, "w+");
+        fprintf(inbound_json, "{\"name\": \"brian\"}");
+        fclose(inbound_json);
+
+        strcpy(command, "/usr/bin/python ./sample_apps/python/bootstrap.py ");
+        strcat(command, json_buf);
+        strcat(command, " 2>&1");
+        syscom = popen(command, "r");
+        while ((ch = fgetc(syscom)) != EOF) {
             ++ch_read;
             response->body = realloc(response->body, (ch_read + 1) * sizeof(char));
             response->body[ch_read-1] = ch;
         }
 
-        fclose(fp);
+        pclose(syscom);
 
         response->body[ch_read] = '\0';
         response->body_len = ch_read;
 
         bs_send_response(STATUS_SUCCESS_OK, request, response);
+    } else {
+        fp = fopen(request->path, "rb");
+
+        if (fp == NULL) {
+            bs_send_response(STATUS_CLIENT_ERROR_NOT_FOUND, request, response);
+        } else {
+            while ((ch = fgetc(fp)) != EOF) {
+                ++ch_read;
+                response->body = realloc(response->body, (ch_read + 1) * sizeof(char));
+                response->body[ch_read-1] = ch;
+            }
+
+            fclose(fp);
+
+            response->body[ch_read] = '\0';
+            response->body_len = ch_read;
+
+            bs_send_response(STATUS_SUCCESS_OK, request, response);
+        }
     }
 
     teardown_conn:
     shutdown(conn_fd, SHUT_WR);
 
-    // eat res
+    /* eat res */
     while (recv(conn_fd, c, 1, 0) > 0);
 
     close(conn_fd);
 
-    // cleanup
+    /* cleanup */
     bs_dealloc_request(request);
     bs_dealloc_response(response);
 
