@@ -40,7 +40,7 @@ void bs_config_parse_opts(int argc, char **argv) {
             menu();
             exit(0);
         } else if (strcmp(argv[i], "-h") == 0) {
-            if (i + 1 >= argc) bserve_fatal("too few arguments");
+            if (i + 1 >= argc) bs_fatal("too few arguments");
 
             config.host_selected = 1;
             config.host = malloc((strlen(argv[i+1]) + 1) * sizeof(char));
@@ -48,7 +48,7 @@ void bs_config_parse_opts(int argc, char **argv) {
 
             ++i;
         } else if (strcmp(argv[i], "-p") == 0) {
-            if (i + 1 >= argc) bserve_fatal("too few arguments");
+            if (i + 1 >= argc) bs_fatal("too few arguments");
 
             config.port_selected = 1;
             config.port = malloc((strlen(argv[i+1]) + 1) * sizeof(char));

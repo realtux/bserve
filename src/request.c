@@ -32,7 +32,7 @@ req_headers *bs_init_headers(void) {
     req_headers *headers = malloc(1 * sizeof(req_headers));
 
     if (headers == NULL) {
-        bserve_fatal("memory allocation error");
+        bs_fatal("memory allocation error");
     }
 
     headers->count = 0;
@@ -45,7 +45,7 @@ bs_request *bs_init_request(void) {
     bs_request *request = malloc(1 * sizeof(bs_request));
 
     if (request == NULL) {
-        bserve_fatal("memory allocation error");
+        bs_fatal("memory allocation error");
     }
 
     request->method = malloc(1 * sizeof(char));
@@ -102,6 +102,7 @@ char *get_path(const char *url) {
     int i;
     int path_len = 0;
     char *path = malloc(1 * sizeof(char));
+
     *path = '\0';
 
     for (i = 0; i < (int)strlen(url); ++i) {
@@ -141,7 +142,6 @@ void *accept_request(void *arg) {
     int ch_read = 0;
     char command[256];
     FILE *fp;
-    FILE *inbound_json;
     FILE *syscom;
 
     free(arg);
@@ -162,7 +162,7 @@ void *accept_request(void *arg) {
         request->method = realloc(request->method, (len + 1) * sizeof(char));
 
         if (request->method == NULL) {
-            bserve_fatal("memory allocation error");
+            bs_fatal("memory allocation error");
         }
 
         strncat(request->method, c, 1);
@@ -182,7 +182,7 @@ void *accept_request(void *arg) {
         request->url = realloc(request->url, (len + 1) * sizeof(char));
 
         if (request->url == NULL) {
-            bserve_fatal("memory allocation error");
+            bs_fatal("memory allocation error");
         }
 
         strncat(request->url, c, 1);
@@ -205,7 +205,7 @@ void *accept_request(void *arg) {
         request->version = realloc(request->version, (len + 1) * sizeof(char));
 
         if (request->version == NULL) {
-            bserve_fatal("memory allocation error");
+            bs_fatal("memory allocation error");
         }
 
         strncat(request->version, c, 1);
@@ -282,7 +282,7 @@ void *accept_request(void *arg) {
             request->body = realloc(request->body, (len + 1) * sizeof(char));
 
             if (request->body == NULL) {
-                bserve_fatal("memory allocation error");
+                bs_fatal("memory allocation error");
             }
 
             strncat(request->body, c, 1);
@@ -315,17 +315,8 @@ void *accept_request(void *arg) {
         strcpy(request->path, "index.html");
     }
 
-    if (0) { /* todo: replace ipc via file with mmap or sockets */
-        char json_buf[128];
-        sprintf(json_buf, "/tmp/bserve/%d.json", response->socket);
-
-        inbound_json = fopen(json_buf, "w+");
-        fprintf(inbound_json, "{\"name\": \"brian\"}");
-        fclose(inbound_json);
-
-        strcpy(command, "/usr/bin/python ./sample_apps/python/bootstrap.py ");
-        strcat(command, json_buf);
-        strcat(command, " 2>&1");
+    if (1) {
+        strcpy(command, "/usr/bin/python ./sample_apps/python/bootstrap.py 2>&1");
         syscom = popen(command, "r");
         while ((ch = fgetc(syscom)) != EOF) {
             ++ch_read;

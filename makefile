@@ -11,6 +11,7 @@ LIB_OBJS =
 LIB_OBJS += build/objs/bserve.o
 LIB_OBJS += build/objs/config.o
 LIB_OBJS += build/objs/error.o
+LIB_OBJS += build/objs/ipc.o
 LIB_OBJS += build/objs/request.o
 LIB_OBJS += build/objs/response.o
 

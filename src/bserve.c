@@ -13,15 +13,18 @@
 
 #include "config.h"
 #include "error.h"
+#include "ipc.h"
 #include "request.h"
 
 extern bs_config config;
 
 int sock_fd;
+extern int ipc_sock_fd;
 
 void term(int signo) {
     printf("received sigterm[%d], killing\n", signo);
     close(sock_fd);
+    close(ipc_sock_fd);
     exit(0);
 }
 
@@ -41,10 +44,16 @@ int main(int argc, char **argv) {
     signal(SIGTERM, term);
     signal(SIGINT, term);
 
+    /**
+     * start listening on the ipc channel so other processes
+     * started by bserve can request their params
+     */
+    pthread_create(&thread, &thread_attr, bs_start_ipc, NULL);
+
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sock_fd < 0)
-        bserve_fatal("opening socket failed");
+        bs_fatal("opening socket failed");
 
     memset(&server_addr, 0, sizeof(server_addr));
 
@@ -55,7 +64,7 @@ int main(int argc, char **argv) {
     bind_res = bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
     if (bind_res < 0)
-        bserve_fatal("address binding failed");
+        bs_fatal("address binding failed");
 
     listen(sock_fd, 5);
 
@@ -63,12 +72,12 @@ int main(int argc, char **argv) {
         int *conn_fd = malloc(sizeof(int));
 
         if (conn_fd == NULL)
-            bserve_fatal("unable to allocate memory");
+            bs_fatal("unable to allocate memory");
 
         *conn_fd = accept(sock_fd, (struct sockaddr *) &client_addr, &client_addr_size);
 
         if (*conn_fd < 0)
-            bserve_fatal("connection accept failed");
+            bs_fatal("connection accept failed");
 
         pthread_create(&thread, &thread_attr, accept_request, conn_fd);
     }
