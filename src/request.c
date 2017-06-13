@@ -315,7 +315,7 @@ void *accept_request(void *arg) {
         strcpy(request->path, "index.html");
     }
 
-    if (1) {
+    if (0) {
         strcpy(command, "/usr/bin/python ./sample_apps/python/bootstrap.py 2>&1");
         syscom = popen(command, "r");
         while ((ch = fgetc(syscom)) != EOF) {
