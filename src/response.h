@@ -68,7 +68,7 @@
 #define STATUS_SERVER_ERROR_NETWORK_CONNECT_TIMEOUT_ERROR 599
 
 typedef struct {
-    int socket;
+    req_meta *meta;
     int body_len;
     char *body;
 } bs_response;
@@ -76,6 +76,6 @@ typedef struct {
 bs_response *bs_init_response(void);
 void bs_dealloc_response(bs_response*);
 void bs_send_response(int, bs_request*, bs_response*);
-void bs_transmit_data(int, const char *, int);
+void bs_transmit_data(req_meta*, const char*, int);
 
 #endif

@@ -280,12 +280,16 @@ void terminate_headers(char **res_string) {
     strcat(*res_string, "\r\n");
 }
 
-void bs_transmit_data(int fd, const char *data, int size) {
+void bs_transmit_data(req_meta *meta, const char *data, int size) {
     int total_bytes_written = 0;
     int bytes_written;
 
     while (size > 0) {
-        bytes_written = write(fd, data + total_bytes_written, size);
+        if (meta->is_ssl == 1) {
+            bytes_written = SSL_write(meta->ssl, data + total_bytes_written, size);
+        } else {
+            bytes_written = write(meta->fd, data + total_bytes_written, size);
+        }
 
         if (bytes_written < 0)
             bs_fatal("failed to write to socket");
@@ -314,6 +318,6 @@ void bs_send_response(int code, bs_request *request, bs_response *response) {
     append_int_header(&headers, "Content-Length", response->body_len);
     terminate_headers(&headers);
 
-    bs_transmit_data(response->socket, headers, strlen(headers));
-    bs_transmit_data(response->socket, response->body, response->body_len);
+    bs_transmit_data(response->meta, headers, strlen(headers));
+    bs_transmit_data(response->meta, response->body, response->body_len);
 }

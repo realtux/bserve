@@ -7,6 +7,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "openssl/ssl.h"
+#include "openssl/err.h"
+
 #include "error.h"
 #include "request.h"
 #include "response.h"
@@ -129,7 +132,7 @@ void dump_headers(bs_request *request) {
 }
 
 void *accept_request(void *arg) {
-    int conn_fd = *((int *)arg);
+    req_meta *meta = arg;
     int len = 0;
     int bytes_read;
     char c[2];
@@ -144,15 +147,23 @@ void *accept_request(void *arg) {
     FILE *fp;
     FILE *syscom;
 
-    free(arg);
+    /*free(arg);*/
 
     c[1] = '\0';
 
     request = bs_init_request();
 
+    if (meta->is_ssl == 1) {
+        SSL_accept(meta->ssl);
+    }
+
     /* extract method */
     for (;;) {
-        bytes_read = recv(conn_fd, c, 1, 0);
+        if (meta->is_ssl == 1) {
+            bytes_read = SSL_read(meta->ssl, c, 1);
+        } else {
+            bytes_read = read(meta->fd, c, 1);
+        }
 
         if (*c == ' ' || bytes_read <= 0) {
             break;
@@ -172,7 +183,11 @@ void *accept_request(void *arg) {
 
     /* extract url */
     for (;;) {
-        bytes_read = recv(conn_fd, c, 1, 0);
+        if (meta->is_ssl == 1) {
+            bytes_read = SSL_read(meta->ssl, c, 1);
+        } else {
+            bytes_read = read(meta->fd, c, 1);
+        }
 
         if (*c == ' ' || bytes_read <= 0) {
             break;
@@ -192,11 +207,19 @@ void *accept_request(void *arg) {
 
     /* extract version */
     for (;;) {
-        bytes_read = recv(conn_fd, c, 1, 0);
+        if (meta->is_ssl == 1) {
+            bytes_read = SSL_read(meta->ssl, c, 1);
+        } else {
+            bytes_read = read(meta->fd, c, 1);
+        }
 
         if (*c == '\r' || bytes_read <= 0) {
             /* eat newline */
-            bytes_read = recv(conn_fd, c, 1, 0);
+            if (meta->is_ssl == 1) {
+                bytes_read = SSL_read(meta->ssl, c, 1);
+            } else {
+                bytes_read = read(meta->fd, c, 1);
+            }
             break;
         }
 
@@ -215,10 +238,19 @@ void *accept_request(void *arg) {
 
     /* extract headers */
     for (;;) {
-        bytes_read = recv(conn_fd, c, 1, MSG_PEEK);
+        if (meta->is_ssl == 1) {
+            bytes_read = SSL_read(meta->ssl, c, 1);
+        } else {
+            bytes_read = read(meta->fd, c, 1);
+        }
 
         if (*c == '\r' || bytes_read <= 0) {
             /* response done reading */
+            if (meta->is_ssl == 1) {
+                bytes_read = SSL_read(meta->ssl, c, 1);
+            } else {
+                bytes_read = read(meta->fd, c, 1);
+            }
             break;
         }
 
@@ -229,11 +261,19 @@ void *accept_request(void *arg) {
         len = 0;
 
         for (;;) {
-            bytes_read = recv(conn_fd, c, 1, 0);
+            if (meta->is_ssl == 1) {
+                bytes_read = SSL_read(meta->ssl, c, 1);
+            } else {
+                bytes_read = read(meta->fd, c, 1);
+            }
 
             if (*c == ':' || bytes_read <= 0) {
                 /* eat space */
-                bytes_read = recv(conn_fd, c, 1, 0);
+                if (meta->is_ssl == 1) {
+                    bytes_read = SSL_read(meta->ssl, c, 1);
+                } else {
+                    bytes_read = read(meta->fd, c, 1);
+                }
                 break;
             }
 
@@ -248,11 +288,19 @@ void *accept_request(void *arg) {
 
         /* extract header value */
         for (;;) {
-            bytes_read = recv(conn_fd, c, 1, 0);
+            if (meta->is_ssl == 1) {
+                bytes_read = SSL_read(meta->ssl, c, 1);
+            } else {
+                bytes_read = read(meta->fd, c, 1);
+            }
 
             if (*c == '\r' || bytes_read <= 0) {
                 /* eat newline */
-                bytes_read = recv(conn_fd, c, 1, 0);
+                if (meta->is_ssl == 1) {
+                    bytes_read = SSL_read(meta->ssl, c, 1);
+                } else {
+                    bytes_read = read(meta->fd, c, 1);
+                }
                 break;
             }
 
@@ -269,13 +317,17 @@ void *accept_request(void *arg) {
     /* extract body if necessary */
     if (content_length > 0 && strcmp(request->method, "GET") != 0) {
         /* eat crlf */
-        bytes_read = recv(conn_fd, c, 1, 0);
-        bytes_read = recv(conn_fd, c, 1, 0);
+        /*bytes_read = recv(meta->fd, c, 1, 0);
+        bytes_read = recv(meta->fd, c, 1, 0);*/
 
         len = 0;
 
         while (len < content_length) {
-            bytes_read = recv(conn_fd, c, 1, 0);
+            if (meta->is_ssl == 1) {
+                bytes_read = SSL_read(meta->ssl, c, 1);
+            } else {
+                bytes_read = read(meta->fd, c, 1);
+            }
 
             ++len;
 
@@ -290,7 +342,7 @@ void *accept_request(void *arg) {
     }
 
     response = bs_init_response();
-    response->socket = conn_fd;
+    response->meta = meta;
 
     path = get_path(request->url);
     request->path = realloc(request->path, (strlen(path) + 1) * sizeof(char));
@@ -352,12 +404,17 @@ void *accept_request(void *arg) {
     }
 
     teardown_conn:
-    shutdown(conn_fd, SHUT_WR);
+    shutdown(meta->fd, SHUT_WR);
 
     /* eat res */
-    while (recv(conn_fd, c, 1, 0) > 0);
-
-    close(conn_fd);
+    if (meta->is_ssl == 1) {
+        while (SSL_read(meta->ssl, c, 1) > 0);
+        close(SSL_get_fd(meta->ssl));
+        SSL_free(meta->ssl);
+    } else {
+        while (read(meta->fd, c, 1) > 0);
+        close(meta->fd);
+    }
 
     /* cleanup */
     bs_dealloc_request(request);

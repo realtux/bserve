@@ -4,7 +4,7 @@ CFLAGS=-std=c89 \
 	-Wcast-align -Wstrict-prototypes -Wno-missing-field-initializers \
 	-Warray-bounds -Wwrite-strings -pedantic -fstrict-aliasing \
 	-Wshadow -Wswitch-default -Wswitch-enum -g
-LINKS=-lpthread
+LINKS=-lpthread -lssl -lcrypto
 INCLUDES=-I. -I./src
 
 LIB_OBJS =

@@ -140,6 +140,7 @@ void *handle_ipc_request(void *arg) {
     int conn_fd;
     char c;
     node *ipc_node;
+    req_meta *meta;
 
     conn_fd = *((int *)arg);
     free(arg);
@@ -187,8 +188,12 @@ bs_ipc_list_insert(ipc_fd);
 ipc_node = bs_ipc_list_get(ipc_fd);
 node_buf = malloc(64);
 sprintf(node_buf, "{\"msg\": \"test\", \"fd\": %d}", ipc_node->fd);
-bs_transmit_data(conn_fd, node_buf, strlen(node_buf));
+meta = malloc(sizeof(req_meta));
+meta->fd = conn_fd;
+meta->is_ssl = 0;
+bs_transmit_data(meta, node_buf, strlen(node_buf));
 free(node_buf);
+free(meta);
 
     bs_ipc_list_remove(ipc_fd);
 
